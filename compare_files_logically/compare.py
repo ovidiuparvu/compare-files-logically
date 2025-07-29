@@ -1,7 +1,6 @@
-import csv
 import filecmp
 from pathlib import Path
-from typing import List, TypeAlias
+from typing import TypeAlias
 
 import polars as pl
 
