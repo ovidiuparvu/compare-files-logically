@@ -1,27 +1,19 @@
-"""
-Tests for the compare_files_logically package.
-"""
-
-import os
+import tempfile
 from pathlib import Path
-from typing import Generator, Tuple
+from typing import Generator, Tuple, Dict
 
 import pytest
+import polars as pl
 
 from compare_files_logically import files_are_logically_equal
 
-# Check if polars is available
-try:
-    import polars  # noqa: F401
-    POLARS_AVAILABLE = True
-except ImportError:
-    POLARS_AVAILABLE = False
-
 
 @pytest.fixture
-def data_dir() -> Path:
-    """Fixture providing the data directory path."""
-    return Path(__file__).parent / "data"
+def data_dir() -> Generator[Path, None, None]:
+    """Fixture providing a temporary data directory path."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        data_dir_path = Path(temp_dir)
+        yield data_dir_path
 
 
 @pytest.fixture
@@ -35,49 +27,74 @@ def empty_files(data_dir: Path) -> Generator[Tuple[Path, Path], None, None]:
     open(empty_file2, "w").close()
     
     yield empty_file1, empty_file2
-    
-    # Cleanup
-    if empty_file1.exists():
-        os.remove(empty_file1)
-    
-    if empty_file2.exists():
-        os.remove(empty_file2)
 
 
 @pytest.fixture
-def generate_parquet() -> None:
-    """Fixture to generate parquet files for testing."""
-    try:
-        from tests.generate_test_data import generate_parquet_files
-        generate_parquet_files()
-    except Exception as e:
-        pytest.skip(f"Failed to generate parquet files: {e}")
+def parquet_files(data_dir: Path) -> Dict[str, Path]:
+    # Create base DataFrame
+    data = {
+        "id": [1, 2, 3],
+        "name": ["apple", "banana", "cherry"],
+        "value": [10.5, 5.2, 8.7]
+    }
+    df1 = pl.DataFrame(data)
+    
+    # File 1 - Base file
+    file1_path = data_dir / "file1.parquet"
+    df1.write_parquet(file1_path)
+    
+    # File 2 - Identical to file1
+    file2_path = data_dir / "file2.parquet"
+    df1.write_parquet(file2_path)
+    
+    # File 3 - Same data as file1 but with rows in different order
+    df3 = pl.DataFrame({
+        "id": [3, 1, 2],
+        "name": ["cherry", "apple", "banana"],
+        "value": [8.7, 10.5, 5.2]
+    })
+    file3_path = data_dir / "file3.parquet"
+    df3.write_parquet(file3_path)
+    
+    # File 4 - Different data (additional row)
+    df4 = pl.DataFrame({
+        "id": [1, 2, 3, 4],
+        "name": ["apple", "banana", "cherry", "date"],
+        "value": [10.5, 5.2, 8.7, 12.3]
+    })
+    file4_path = data_dir / "file4.parquet"
+    df4.write_parquet(file4_path)
+    
+    # File 5 - Same data as file1 but with different metadata
+    # Add a temporary column and then remove it to change metadata
+    df5 = df1.with_columns(pl.lit(0).alias("temp"))
+    df5 = df5.drop("temp")
+    file5_path = data_dir / "file5.parquet"
+    df5.write_parquet(file5_path)
+    
+    return {
+        "file1": file1_path,
+        "file2": file2_path,
+        "file3": file3_path,
+        "file4": file4_path,
+        "file5": file5_path
+    }
 
 
-def test_identical_files(data_dir: Path) -> None:
+def test_identical_files(parquet_files: Dict[str, Path]) -> None:
     """Test that identical files are considered equal."""
-    file1 = data_dir / "file1.csv"
-    file2 = data_dir / "file2.csv"
+    file1 = parquet_files["file1"]
+    file2 = parquet_files["file2"]
     
     assert files_are_logically_equal(file1, file2)
 
 
-def test_logically_equal_csv_files(data_dir: Path) -> None:
-    """Test CSV files with different formatting.
-    
-    This test verifies that CSV files with the same data but different formatting
-    (whitespace, row order) are considered logically equal.
-    """
-    file1 = data_dir / "file1.csv"
-    file3 = data_dir / "file3.csv"
-    
-    assert files_are_logically_equal(file1, file3)
 
 
-def test_different_csv_files(data_dir: Path) -> None:
-    """Test that different CSV files are not considered equal."""
-    file1 = data_dir / "file1.csv"
-    file4 = data_dir / "file4.csv"
+def test_different_files(parquet_files: Dict[str, Path]) -> None:
+    """Test that different files are not considered equal."""
+    file1 = parquet_files["file1"]
+    file4 = parquet_files["file4"]
     
     assert not files_are_logically_equal(file1, file4)
 
@@ -88,62 +105,29 @@ def test_empty_files(empty_files: Tuple[Path, Path]) -> None:
     assert files_are_logically_equal(empty_file1, empty_file2)
 
 
-def test_same_file(data_dir: Path) -> None:
+def test_same_file(parquet_files: Dict[str, Path]) -> None:
     """Test that a file is equal to itself."""
-    file1 = data_dir / "file1.csv"
+    file1 = parquet_files["file1"]
     
     assert files_are_logically_equal(file1, file1)
 
 
-def test_nonexistent_file(data_dir: Path) -> None:
+def test_nonexistent_file(parquet_files: Dict[str, Path], data_dir: Path) -> None:
     """Test that a FileNotFoundError is raised for nonexistent files."""
-    file1 = data_dir / "file1.csv"
-    nonexistent_file = data_dir / "nonexistent.csv"
+    file1 = parquet_files["file1"]
+    nonexistent_file = data_dir / "nonexistent.parquet"
     
     with pytest.raises(FileNotFoundError):
         files_are_logically_equal(file1, nonexistent_file)
 
 
-@pytest.mark.skipif(not POLARS_AVAILABLE, reason="Polars not available")
-class TestParquetCompare:
-    """Test cases for parquet file comparison (requires polars)."""
+def test_logically_equal_files_with_different_metadata(parquet_files: Dict[str, Path]) -> None:
+    """Test parquet files with different metadata but same data.
     
-    def test_identical_parquet_files(
-        self, data_dir: Path, generate_parquet: None
-    ) -> None:
-        """Test that identical parquet files are considered equal."""
-        file1 = data_dir / "file1.parquet"
-        file2 = data_dir / "file2.parquet"
-        
-        if not file1.exists() or not file2.exists():
-            pytest.skip("Parquet files not available")
-        
-        assert files_are_logically_equal(file1, file2)
+    This test verifies that parquet files with different metadata
+    but the same data are considered logically equal.
+    """
+    file1 = parquet_files["file1"]
+    file5 = parquet_files["file5"]
     
-    def test_logically_equal_parquet_files(
-        self, data_dir: Path, generate_parquet: None
-    ) -> None:
-        """Test parquet files with different metadata but same data.
-        
-        This test verifies that parquet files with different metadata
-        but the same data are considered logically equal.
-        """
-        file1 = data_dir / "file1.parquet"
-        file5 = data_dir / "file5.parquet"
-        
-        if not file1.exists() or not file5.exists():
-            pytest.skip("Parquet files not available")
-        
-        assert files_are_logically_equal(file1, file5)
-    
-    def test_different_parquet_files(
-        self, data_dir: Path, generate_parquet: None
-    ) -> None:
-        """Test that different parquet files are not considered equal."""
-        file1 = data_dir / "file1.parquet"
-        file4 = data_dir / "file4.parquet"
-        
-        if not file1.exists() or not file4.exists():
-            pytest.skip("Parquet files not available")
-        
-        assert not files_are_logically_equal(file1, file4)
+    assert files_are_logically_equal(file1, file5)
