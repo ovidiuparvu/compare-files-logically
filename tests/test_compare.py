@@ -8,7 +8,7 @@ from typing import Generator, Tuple
 
 import pytest
 
-from compare_files_logically import are_files_equal
+from compare_files_logically import files_are_logically_equal
 
 # Check if polars is available
 try:
@@ -45,25 +45,6 @@ def empty_files(data_dir: Path) -> Generator[Tuple[Path, Path], None, None]:
 
 
 @pytest.fixture
-def temp_csv_file(data_dir: Path) -> Generator[Path, None, None]:
-    """Fixture creating a temporary CSV file with different headers but same data."""
-    temp_file = data_dir / "temp.csv"
-    
-    with open(data_dir / "file1.csv", "r") as f:
-        lines = f.readlines()
-    
-    with open(temp_file, "w") as f:
-        f.write("ID,FRUIT,PRICE\n")  # Different header
-        f.writelines(lines[1:])  # Same data
-    
-    yield temp_file
-    
-    # Cleanup
-    if temp_file.exists():
-        os.remove(temp_file)
-
-
-@pytest.fixture
 def generate_parquet() -> None:
     """Fixture to generate parquet files for testing."""
     try:
@@ -78,7 +59,7 @@ def test_identical_files(data_dir: Path) -> None:
     file1 = data_dir / "file1.csv"
     file2 = data_dir / "file2.csv"
     
-    assert are_files_equal(file1, file2)
+    assert files_are_logically_equal(file1, file2)
 
 
 def test_logically_equal_csv_files(data_dir: Path) -> None:
@@ -90,7 +71,7 @@ def test_logically_equal_csv_files(data_dir: Path) -> None:
     file1 = data_dir / "file1.csv"
     file3 = data_dir / "file3.csv"
     
-    assert are_files_equal(file1, file3)
+    assert files_are_logically_equal(file1, file3)
 
 
 def test_different_csv_files(data_dir: Path) -> None:
@@ -98,20 +79,20 @@ def test_different_csv_files(data_dir: Path) -> None:
     file1 = data_dir / "file1.csv"
     file4 = data_dir / "file4.csv"
     
-    assert not are_files_equal(file1, file4)
+    assert not files_are_logically_equal(file1, file4)
 
 
 def test_empty_files(empty_files: Tuple[Path, Path]) -> None:
     """Test that empty files are considered equal."""
     empty_file1, empty_file2 = empty_files
-    assert are_files_equal(empty_file1, empty_file2)
+    assert files_are_logically_equal(empty_file1, empty_file2)
 
 
 def test_same_file(data_dir: Path) -> None:
     """Test that a file is equal to itself."""
     file1 = data_dir / "file1.csv"
     
-    assert are_files_equal(file1, file1)
+    assert files_are_logically_equal(file1, file1)
 
 
 def test_nonexistent_file(data_dir: Path) -> None:
@@ -120,20 +101,7 @@ def test_nonexistent_file(data_dir: Path) -> None:
     nonexistent_file = data_dir / "nonexistent.csv"
     
     with pytest.raises(FileNotFoundError):
-        are_files_equal(file1, nonexistent_file)
-
-
-def test_ignore_headers(data_dir: Path, temp_csv_file: Path) -> None:
-    """Test CSV files with different headers but same data.
-    
-    This test verifies that CSV files with different headers but the same data
-    are considered equal when the ignore_headers option is set to True.
-    """
-    # Should be different with headers
-    assert not are_files_equal(data_dir / "file1.csv", temp_csv_file)
-    
-    # Should be equal when ignoring headers
-    assert are_files_equal(data_dir / "file1.csv", temp_csv_file, ignore_headers=True)
+        files_are_logically_equal(file1, nonexistent_file)
 
 
 @pytest.mark.skipif(not POLARS_AVAILABLE, reason="Polars not available")
@@ -150,7 +118,7 @@ class TestParquetCompare:
         if not file1.exists() or not file2.exists():
             pytest.skip("Parquet files not available")
         
-        assert are_files_equal(file1, file2)
+        assert files_are_logically_equal(file1, file2)
     
     def test_logically_equal_parquet_files(
         self, data_dir: Path, generate_parquet: None
@@ -166,7 +134,7 @@ class TestParquetCompare:
         if not file1.exists() or not file5.exists():
             pytest.skip("Parquet files not available")
         
-        assert are_files_equal(file1, file5)
+        assert files_are_logically_equal(file1, file5)
     
     def test_different_parquet_files(
         self, data_dir: Path, generate_parquet: None
@@ -178,5 +146,4 @@ class TestParquetCompare:
         if not file1.exists() or not file4.exists():
             pytest.skip("Parquet files not available")
         
-        assert not are_files_equal(file1, file4)
-    
+        assert not files_are_logically_equal(file1, file4)

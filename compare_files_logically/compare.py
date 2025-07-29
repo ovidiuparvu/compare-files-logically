@@ -1,13 +1,14 @@
+import csv
 import filecmp
 from pathlib import Path
-from typing import TypeAlias
+from typing import List, TypeAlias
 
 import polars as pl
 
 FilePath: TypeAlias = str | Path
 
 
-def are_files_equal(file1: FilePath, file2: FilePath) -> bool:
+def files_are_logically_equal(file1: FilePath, file2: FilePath) -> bool:
     path1 = Path(file1) if isinstance(file1, str) else file1
     path2 = Path(file2) if isinstance(file2, str) else file2
     
@@ -30,8 +31,8 @@ def are_files_equal(file1: FilePath, file2: FilePath) -> bool:
     
     match ext1:
         case '.csv':
-            return pl.scan_csv(path1).collect(streaming=True).equals(pl.scan_csv(path2).collect(streaming=True))
+            return pl.scan_csv(path1).collect(new_streaming=True).equals(pl.scan_csv(path2).collect(new_streaming=True))
         case '.parquet':
-            return pl.scan_parquet(path1).collect(streaming=True).equals(pl.scan_parquet(path2).collect(streaming=True))
+            return pl.scan_parquet(path1).collect(new_streaming=True).equals(pl.scan_parquet(path2).collect(new_streaming=True))
         case _:
             return filecmp.cmp(path1, path2, shallow=False)
