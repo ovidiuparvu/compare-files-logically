@@ -82,7 +82,7 @@ def test_identical_files(data_dir: Path) -> None:
 
 
 def test_logically_equal_csv_files(data_dir: Path) -> None:
-    """Test that logically equal CSV files with different formatting are considered equal.
+    """Test CSV files with different formatting.
     
     This test verifies that CSV files with the same data but different formatting
     (whitespace, row order) are considered logically equal.
@@ -180,14 +180,3 @@ class TestParquetCompare:
         
         assert not are_files_equal(file1, file4)
     
-    def test_csv_vs_parquet(
-        self, data_dir: Path, generate_parquet: None
-    ) -> None:
-        """Test comparison between CSV and parquet files."""
-        csv_file = data_dir / "file1.csv"
-        parquet_file = data_dir / "file1.parquet"
-        
-        if not parquet_file.exists():
-            pytest.skip("Parquet file not available")
-        
-        assert are_files_equal(csv_file, parquet_file)

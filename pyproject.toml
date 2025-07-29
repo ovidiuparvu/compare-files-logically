@@ -1,3 +1,37 @@
+[build-system]
+requires = ["hatchling>=1.0.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "compare-files-logically"
+version = "0.1.0"
+authors = [
+    {name = "JetBrains", email = "info@jetbrains.com"},
+]
+description = "A Python library for comparing files logically, with special handling for CSV and parquet files"
+readme = "README.md"
+requires-python = ">=3.12"
+license = {text = "MIT"}
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Utilities",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/jetbrains/compare-files-logically"
+Repository = "https://github.com/jetbrains/compare-files-logically"
+
+[project.optional-dependencies]
+parquet = ["polars>=0.20.0"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["compare_files_logically"]
+
 [tool.ruff]
 # Exclude a variety of commonly ignored directories
 exclude = [
@@ -27,8 +61,7 @@ exclude = [
 # Same as Black
 line-length = 88
 
-# Assume Python 3.9+
-target-version = "py39"
+target-version = "py312"
 
 [tool.ruff.lint]
 # Enable pycodestyle (E), Pyflakes (F), isort (I), and type annotations (ANN)
