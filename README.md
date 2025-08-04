@@ -6,7 +6,7 @@ A Python library for comparing files logically, with special handling for CSV an
 
 - Compare any two files for logical equality
 - Special handling for CSV files:
-  - Ignores formatting differences (whitespace, order of rows)
+  - Ignores formatting differences
 - Special handling for parquet files:
   - Compares data content regardless of metadata differences
 - Automatic handling of special cases:
@@ -50,7 +50,7 @@ print(f"Parquet files are equal: {result}")
 ## How It Works
 
 - For regular files: Performs a binary comparison
-- For CSV files: Uses polars to read and compare the data, ignoring formatting differences and row order
+- For CSV files: Uses polars to read and compare the data, ignoring formatting differences
 - For parquet files: Uses polars to read and compare the data, ignoring metadata differences
 - Special cases:
   - Empty files are always considered equal
