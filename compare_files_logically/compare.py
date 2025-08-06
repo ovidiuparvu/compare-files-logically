@@ -7,15 +7,17 @@ import polars as pl
 FilePath: TypeAlias = str | Path
 
 
+def ensure_existing_file_path(file_path: FilePath) -> Path:
+    path = Path(file_path) if isinstance(file_path, str) else file_path
+    if not path.exists() or not path.is_file():
+        raise FileNotFoundError(f"{path} should point to an existing file and it does not.")
+    return path
+
+
 def files_are_logically_equal(file1: FilePath, file2: FilePath) -> bool:
-    path1 = Path(file1) if isinstance(file1, str) else file1
-    path2 = Path(file2) if isinstance(file2, str) else file2
-    
-    if not path1.exists():
-        raise FileNotFoundError(f"File not found: {path1}")
-    if not path2.exists():
-        raise FileNotFoundError(f"File not found: {path2}")
-    
+    path1 = ensure_existing_file_path(file1)
+    path2 = ensure_existing_file_path(file2)
+
     if path1.samefile(path2):
         return True
     
@@ -30,8 +32,8 @@ def files_are_logically_equal(file1: FilePath, file2: FilePath) -> bool:
     
     match ext1:
         case '.csv':
-            return pl.scan_csv(path1).collect(new_streaming=True).equals(pl.scan_csv(path2).collect(new_streaming=True))
+            return pl.scan_csv(path1).collect(engine="streaming").equals(pl.scan_csv(path2).collect(engine="streaming"))
         case '.parquet':
-            return pl.scan_parquet(path1).collect(new_streaming=True).equals(pl.scan_parquet(path2).collect(new_streaming=True))
+            return pl.scan_parquet(path1).collect(engine="streaming").equals(pl.scan_parquet(path2).collect(engine="streaming"))
         case _:
             return filecmp.cmp(path1, path2, shallow=False)
